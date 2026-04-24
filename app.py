@@ -1,47 +1,32 @@
-import streamlit as st
+0import streamlit as st
 import pandas as pd
 import plotly.express as px
 import zipfile
 import os
 import pydeck as pdk
+import traceback
 
-# ---------------------------
-# CONFIG
-# ---------------------------
 st.set_page_config(page_title="SSS Dashboard", layout="wide")
 
-# ---------------------------
-# ERROR HANDLER
-# ---------------------------
+# =========================================================
+# GLOBAL ERROR HANDLER (VERY IMPORTANT)
+# =========================================================
 try:
 
-    # ---------------------------
-    # STYLE FUNCTION
-    # ---------------------------
-    def style_chart(fig):
-        fig.update_layout(
-            plot_bgcolor="white",
-            paper_bgcolor="white",
-            font_color="black"
-        )
-        return fig
+    st.title("SSS DATA ANALYTICS")
 
-    # ---------------------------
-    # TITLE
-    # ---------------------------
-    st.markdown("## SSS DATA ANALYTICS")
-
-    # ---------------------------
-    # LOAD DATA (SAFE)
-    # ---------------------------
+    # =========================================================
+    # LOAD DATA (CLOUD SAFE)
+    # =========================================================
     @st.cache_data
     def load_data():
         files = os.listdir()
+        st.write("📂 Files in directory:", files)
+
         zip_files = [f for f in files if f.endswith(".zip")]
 
         if not zip_files:
-            st.error("❌ No ZIP file found")
-            st.write("Available files:", files)
+            st.error("❌ No ZIP file found in repo")
             st.stop()
 
         with zipfile.ZipFile(zip_files[0]) as z:
@@ -52,31 +37,35 @@ try:
                 st.stop()
 
             with z.open(csv_files[0]) as f:
-                df = pd.read_csv(f, encoding="cp1252", low_memory=False, dtype=str)
+                df = pd.read_csv(
+                    f,
+                    encoding="cp1252",
+                    low_memory=False,
+                    dtype=str
+                )
 
         return df
 
     df = load_data()
 
-    # ---------------------------
-    # DEBUG (IMPORTANT)
-    # ---------------------------
-    st.write("Columns:", df.columns.tolist())
+    # =========================================================
+    # DEBUG (SHOW COLUMNS)
+    # =========================================================
+    st.write("📊 Columns:", df.columns.tolist())
 
-    # ---------------------------
-    # DATE FIX (SAFE)
-    # ---------------------------
-    if "Inserted_At" in df.columns:
-        df["Inserted_At"] = pd.to_datetime(df["Inserted_At"], errors="coerce")
-    else:
+    # =========================================================
+    # DATE HANDLING (SAFE)
+    # =========================================================
+    if "Inserted_At" not in df.columns:
         st.error("❌ 'Inserted_At' column missing")
         st.stop()
 
+    df["Inserted_At"] = pd.to_datetime(df["Inserted_At"], errors="coerce")
     df["Inserted_Date"] = df["Inserted_At"]
 
-    # ---------------------------
+    # =========================================================
     # REQUIRED COLUMN CHECK
-    # ---------------------------
+    # =========================================================
     required_cols = [
         "Operator_Code", "Service",
         "From_Port", "To_Port",
@@ -89,10 +78,10 @@ try:
         st.error(f"❌ Missing columns: {missing_cols}")
         st.stop()
 
-    # ---------------------------
+    # =========================================================
     # FILTERS
-    # ---------------------------
-    st.markdown("### Filters")
+    # =========================================================
+    st.subheader("Filters")
 
     col1, col2, col3, col4 = st.columns(4)
 
@@ -101,9 +90,6 @@ try:
     from_port = col3.multiselect("From Port", sorted(df["From_Port"].dropna().unique()))
     to_port = col4.multiselect("To Port", sorted(df["To_Port"].dropna().unique()))
 
-    # ---------------------------
-    # FILTER LOGIC
-    # ---------------------------
     filtered_df = df.copy()
 
     if operator:
@@ -117,9 +103,9 @@ try:
 
     filtered_df = filtered_df.dropna(subset=["Inserted_Date", "Operator_Code"])
 
-    # ---------------------------
+    # =========================================================
     # KPI
-    # ---------------------------
+    # =========================================================
     c1, c2, c3, c4 = st.columns(4)
 
     c1.metric("Operators", filtered_df["Operator_Code"].nunique())
@@ -127,9 +113,9 @@ try:
     c3.metric("Terminals", filtered_df["From_Port_Terminal"].nunique())
     c4.metric("Vessels", filtered_df["Vessel_Name"].nunique())
 
-    # ---------------------------
-    # SUMMARY
-    # ---------------------------
+    # =========================================================
+    # SUMMARY TABLE
+    # =========================================================
     st.subheader("Date vs Operator Summary")
 
     summary_df = (
@@ -142,20 +128,22 @@ try:
 
     st.dataframe(summary_df, use_container_width=True)
 
-    # ---------------------------
-    # OPERATOR CHART
-    # ---------------------------
+    # =========================================================
+    # OPERATOR ANALYTICS
+    # =========================================================
+    st.subheader("Operator Analytics")
+
     trend = filtered_df["Operator_Code"].value_counts().reset_index()
     trend.columns = ["Operator", "Count"]
 
     fig = px.bar(trend, x="Operator", y="Count", text="Count", color="Operator")
     fig.update_layout(showlegend=False)
 
-    st.plotly_chart(style_chart(fig), use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True)
 
-    # ---------------------------
+    # =========================================================
     # ROUTES
-    # ---------------------------
+    # =========================================================
     st.subheader("Top Routes")
 
     route_df = (
@@ -170,55 +158,57 @@ try:
     fig_route = px.bar(route_df, x="Count", y="Route", orientation="h")
     st.plotly_chart(fig_route, use_container_width=True)
 
-    # ---------------------------
-    # MAP FILE CHECK
-    # ---------------------------
+    # =========================================================
+    # MAP SECTION (SAFE)
+    # =========================================================
     if not os.path.exists("country_lat_lon.csv"):
-        st.warning("⚠️ country_lat_lon.csv missing → map disabled")
+        st.warning("⚠️ country_lat_lon.csv not found → Map skipped")
     else:
         st.subheader("Route Map")
 
         country_df = pd.read_csv("country_lat_lon.csv")
-
         country_df.columns = country_df.columns.str.strip()
 
-        country_df["Country_Code"] = country_df["Country_Code"].str.upper()
+        required_map_cols = ["From_Port_Code", "To_Port_Code"]
 
-        map_df = filtered_df.copy()
+        missing_map = [c for c in required_map_cols if c not in df.columns]
 
-        map_df["From_Country"] = map_df["From_Port_Code"].str[:2]
-        map_df["To_Country"] = map_df["To_Port_Code"].str[:2]
+        if missing_map:
+            st.warning(f"⚠️ Map skipped. Missing: {missing_map}")
+        else:
+            df["From_Country"] = df["From_Port_Code"].str[:2]
+            df["To_Country"] = df["To_Port_Code"].str[:2]
 
-        route_df = (
-            map_df.groupby(["From_Country", "To_Country"])
-            .size()
-            .reset_index(name="Count")
-        )
+            route_df = (
+                df.groupby(["From_Country", "To_Country"])
+                .size()
+                .reset_index(name="Count")
+            )
 
-        route_df = route_df.merge(
-            country_df, left_on="From_Country", right_on="Country_Code", how="left"
-        ).rename(columns={"Latitude": "from_lat", "Longitude": "from_lon"})
+            route_df = route_df.merge(
+                country_df, left_on="From_Country", right_on="Country_Code", how="left"
+            ).rename(columns={"Latitude": "from_lat", "Longitude": "from_lon"})
 
-        route_df = route_df.merge(
-            country_df, left_on="To_Country", right_on="Country_Code", how="left"
-        ).rename(columns={"Latitude": "to_lat", "Longitude": "to_lon"})
+            route_df = route_df.merge(
+                country_df, left_on="To_Country", right_on="Country_Code", how="left"
+            ).rename(columns={"Latitude": "to_lat", "Longitude": "to_lon"})
 
-        route_df = route_df.dropna()
+            route_df = route_df.dropna()
 
-        arc_layer = pdk.Layer(
-            "ArcLayer",
-            data=route_df,
-            get_source_position=["from_lon", "from_lat"],
-            get_target_position=["to_lon", "to_lat"],
-            get_width=2,
-        )
+            arc_layer = pdk.Layer(
+                "ArcLayer",
+                data=route_df,
+                get_source_position=["from_lon", "from_lat"],
+                get_target_position=["to_lon", "to_lat"],
+                get_width=2,
+            )
 
-        st.pydeck_chart(pdk.Deck(layers=[arc_layer]))
+            st.pydeck_chart(pdk.Deck(layers=[arc_layer]))
 
-# ---------------------------
-# GLOBAL ERROR
-# ---------------------------
+# =========================================================
+# GLOBAL ERROR OUTPUT
+# =========================================================
 except Exception as e:
-    import traceback
-    st.error(f"🔥 App crashed: {e}")
+    st.error("🔥 App Crashed")
+    st.text(str(e))
     st.text(traceback.format_exc())

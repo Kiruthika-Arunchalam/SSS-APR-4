@@ -22,7 +22,8 @@ def style_chart(fig):
 # SUPABASE CONFIG
 # ---------------------------
 URL = "https://ckslcleodlomdbttzeac.supabase.co/rest/v1/sss_schedule"
-KEY = "sb_secret_xxxxxxxxxxxxxxxxxxxxx"   # 🔥 replace
+KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNrc2xjbGVvZGxvbWRidHR6ZWFjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjMxNjY2NSwiZXhwIjoyMDkxODkyNjY1fQ.duxCrrLqpMZ2LMZ3S3-C_DyiqZ5Vjhr2td1d2FSkBTA"
+  # 🔥 replace
 
 headers = {
     "apikey": KEY,

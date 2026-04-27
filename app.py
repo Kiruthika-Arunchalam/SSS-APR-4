@@ -10,20 +10,11 @@ import os
 # ---------------------------
 st.set_page_config(page_title="SSS Dashboard", layout="wide")
 
-def style_chart(fig):
-    fig.update_layout(
-        plot_bgcolor="white",
-        paper_bgcolor="white",
-        font_color="black"
-    )
-    return fig
-
 # ---------------------------
 # SUPABASE CONFIG
 # ---------------------------
 URL = "https://ckslcleodlomdbttzeac.supabase.co/rest/v1/sss_schedule"
-KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNrc2xjbGVvZGxvbWRidHR6ZWFjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjMxNjY2NSwiZXhwIjoyMDkxODkyNjY1fQ.duxCrrLqpMZ2LMZ3S3-C_DyiqZ5Vjhr2td1d2FSkBTA"
-  # 🔥 replace
+KEY = "sb_secret_xxxxxxxxxxxxxxxxxxxxx"   # 🔥 replace with your key
 
 headers = {
     "apikey": KEY,
@@ -31,12 +22,12 @@ headers = {
 }
 
 # ---------------------------
-# LOAD DATA (🔥 PAGINATION FIX)
+# LOAD DATA (🔥 FIXED - FULL DATA)
 # ---------------------------
 @st.cache_data
 def load_data():
     all_data = []
-    batch_size = 42500
+    batch_size = 1000
     start = 0
 
     while True:
@@ -133,10 +124,12 @@ summary_df = (
     .reset_index(name="Count")
 )
 
+summary_df["Inserted_Date"] = summary_df["Inserted_Date"].dt.strftime("%d-%m-%Y")
+
 st.dataframe(summary_df, use_container_width=True)
 
 # ---------------------------
-# OPERATOR CHART
+# OPERATOR ANALYTICS
 # ---------------------------
 st.markdown("### Operator Analytics")
 
@@ -147,7 +140,7 @@ fig = px.bar(trend, x="Operator", y="Count", color="Operator", text="Count")
 fig.update_traces(textposition="outside")
 fig.update_layout(showlegend=False)
 
-st.plotly_chart(style_chart(fig), use_container_width=True)
+st.plotly_chart(fig, use_container_width=True)
 
 # ---------------------------
 # TOP ROUTES

@@ -36,7 +36,7 @@ headers = {
 @st.cache_data
 def load_data():
     all_data = []
-    batch_size = 1000
+    batch_size = 42500
     start = 0
 
     while True:

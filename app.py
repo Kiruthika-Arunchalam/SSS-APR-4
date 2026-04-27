@@ -10,7 +10,66 @@ import os
 # ---------------------------
 st.set_page_config(page_title="SSS Dashboard", layout="wide")
 
+def style_chart(fig):   # ✅ FIX 2 (missing function)
+    fig.update_layout(
+        plot_bgcolor="white",
+        paper_bgcolor="white",
+        font_color="black"
+    )
+    return fig
+
 # ---------------------------
+# GRADIENT CSS (🔥 PREMIUM)
+# ---------------------------
+st.markdown("""
+<style>
+
+/* Title */
+.title {
+    background: linear-gradient(90deg, #667eea, #764ba2, #43cea2);
+    padding: 18px;
+    text-align: center;
+    font-size: 28px;
+    font-weight: bold;
+    color: white;
+    border-radius: 12px;
+    margin-bottom: 20px;
+}
+
+/* Section */
+.section {
+    background: linear-gradient(90deg, #36d1dc, #5b86e5);
+    padding: 10px;
+    color: white;
+    font-weight: bold;
+    border-radius: 8px;
+    margin-top: 25px;
+}
+
+/* Cards */
+.card {
+    padding: 25px;
+    border-radius: 14px;
+    color: white;
+    text-align: center;
+    font-weight: bold;
+}
+
+/* Card colors */
+.card1 { background: linear-gradient(135deg, #667eea, #764ba2); }
+.card2 { background: linear-gradient(135deg, #43cea2, #185a9d); }
+.card3 { background: linear-gradient(135deg, #36d1dc, #5b86e5); }
+.card4 { background: linear-gradient(135deg, #ff758c, #ff7eb3); }
+
+</style>
+""", unsafe_allow_html=True)
+
+
+# ---------------------------
+# TITLE
+# ---------------------------
+st.markdown('<div class="title">SSS DATA ANALYTICS</div>', unsafe_allow_html=True)
+
 # SUPABASE CONFIG
 # ---------------------------
 URL = "https://ckslcleodlomdbttzeac.supabase.co/rest/v1/sss_schedule"
@@ -73,10 +132,6 @@ def parse_date(x):
 df["Inserted_At"] = df["Inserted_At"].apply(parse_date)
 df["Inserted_Date"] = df["Inserted_At"]
 
-# ---------------------------
-# TITLE
-# ---------------------------
-st.markdown('<div class="title">SSS DATA ANALYTICS</div>', unsafe_allow_html=True)
 
 # ---------------------------
 # FILTERS
@@ -106,17 +161,19 @@ filtered_df = filtered_df.dropna(subset=["Inserted_Date", "Operator_Code"])
 # ---------------------------
 # KPI CARDS
 # ---------------------------
+
 c1, c2, c3, c4 = st.columns(4)
 
-c1.metric("Operators", filtered_df["Operator_Code"].nunique())
-c2.metric("Ports", filtered_df["From_Port"].nunique())
-c3.metric("Terminals", filtered_df["From_Port_Terminal"].nunique())
-c4.metric("Vessels", filtered_df["Vessel_Name"].nunique())
+c1.markdown(f'<div class="card card1">TOTAL OPERATORS<br><h1>{filtered_df["Operator_Code"].nunique()}</h1></div>', unsafe_allow_html=True)
+c2.markdown(f'<div class="card card2">TOTAL PORTS<br><h1>{filtered_df["From_Port"].nunique()}</h1></div>', unsafe_allow_html=True)
+c3.markdown(f'<div class="card card3">TOTAL TERMINALS<br><h1>{filtered_df["From_Port_Terminal"].nunique()}</h1></div>', unsafe_allow_html=True)
+c4.markdown(f'<div class="card card4">TOTAL VESSELS<br><h1>{filtered_df["Vessel_Name"].nunique()}</h1></div>', unsafe_allow_html=True)
+
 
 # ---------------------------
 # SUMMARY TABLE
 # ---------------------------
-st.markdown("### Date vs Operator Summary")
+st.markdown('<div class="section">Date vs Operator Summary</div>', unsafe_allow_html=True)
 
 summary_df = (
     filtered_df.groupby(["Inserted_Date", "Operator_Code"])
@@ -126,7 +183,15 @@ summary_df = (
 
 summary_df["Inserted_Date"] = summary_df["Inserted_Date"].dt.strftime("%d-%m-%Y")
 
-st.dataframe(summary_df, use_container_width=True)
+total = pd.DataFrame({
+    "Inserted_Date": ["TOTAL"],
+    "Operator_Code": [""],
+    "Count": [summary_df["Count"].sum()]
+})
+
+final_df = pd.concat([summary_df, total])
+
+st.dataframe(final_df, width='stretch')
 
 # ---------------------------
 # OPERATOR ANALYTICS
@@ -180,39 +245,39 @@ st.plotly_chart(fig_service, use_container_width=True)
 # ---------------------------
 # MAP
 # ---------------------------
-if os.path.exists("country_lat_lon.csv"):
+# if os.path.exists("country_lat_lon.csv"):
 
-    country_df = pd.read_csv("country_lat_lon.csv")
-    country_df["Country_Code"] = country_df["Country_Code"].str.upper()
+#     country_df = pd.read_csv("country_lat_lon.csv")
+#     country_df["Country_Code"] = country_df["Country_Code"].str.upper()
 
-    map_df = filtered_df.copy()
-    map_df["From_Country"] = map_df["From_Port_Code"].str[:2]
-    map_df["To_Country"] = map_df["To_Port_Code"].str[:2]
+#     map_df = filtered_df.copy()
+#     map_df["From_Country"] = map_df["From_Port_Code"].str[:2]
+#     map_df["To_Country"] = map_df["To_Port_Code"].str[:2]
 
-    route_df = (
-        map_df.groupby(["From_Country", "To_Country"])
-        .size()
-        .reset_index(name="Count")
-    )
+#     route_df = (
+#         map_df.groupby(["From_Country", "To_Country"])
+#         .size()
+#         .reset_index(name="Count")
+#     )
 
-    route_df = route_df.merge(
-        country_df, left_on="From_Country", right_on="Country_Code"
-    ).rename(columns={"Latitude": "from_lat", "Longitude": "from_lon"})
+#     route_df = route_df.merge(
+#         country_df, left_on="From_Country", right_on="Country_Code"
+#     ).rename(columns={"Latitude": "from_lat", "Longitude": "from_lon"})
 
-    route_df = route_df.merge(
-        country_df, left_on="To_Country", right_on="Country_Code"
-    ).rename(columns={"Latitude": "to_lat", "Longitude": "to_lon"})
+#     route_df = route_df.merge(
+#         country_df, left_on="To_Country", right_on="Country_Code"
+#     ).rename(columns={"Latitude": "to_lat", "Longitude": "to_lon"})
 
-    arc_layer = pdk.Layer(
-        "ArcLayer",
-        data=route_df,
-        get_source_position=["from_lon", "from_lat"],
-        get_target_position=["to_lon", "to_lat"],
-        get_width=1,
-    )
+#     arc_layer = pdk.Layer(
+#         "ArcLayer",
+#         data=route_df,
+#         get_source_position=["from_lon", "from_lat"],
+#         get_target_position=["to_lon", "to_lat"],
+#         get_width=1,
+#     )
 
-    st.markdown("### Route Map")
-    st.pydeck_chart(pdk.Deck(layers=[arc_layer]))
+#     st.markdown("### Route Map")
+#     st.pydeck_chart(pdk.Deck(layers=[arc_layer]))
 
-else:
-    st.warning("country_lat_lon.csv not found")
+# else:
+#     st.warning("country_lat_lon.csv not found")
